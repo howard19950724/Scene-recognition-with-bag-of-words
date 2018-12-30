@@ -123,3 +123,4 @@ Finally, there will be extra credit and recognition for the students who achieve
 
 ## Credits
 Assignment modified by Min Sun based on codes from James Hays. Figures in this handout are from <a href="http://lear.inrialpes.fr/people/triggs/pubs/Dalal-cvpr05.pdf">Dalal and Triggs</a>.
+# Face-detection-with-a-sliding-window
