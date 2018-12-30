@@ -1,136 +1,111 @@
 <center>
-<img src="./README_files/header.png"><p style="color: #666;">
-An example of a typical bag of words classification pipeline. Figure by <a href="http://www.robots.ox.ac.uk/~vgg/research/encoding_eval/">Chatfield et al.</a></p><p></p></center>
+<img src="README_files/hw4face_girls.png" width="410" >
+<br>
+(Example face detection results from anXDdd.)
+</center>
 
-<h1>Project 3: Scene recognition with bag of words<br>
-</h1> 
+# Project 4: Face detection with a sliding window
 
- 
-<h2>Brief</h2> 
+## Brief
+* Due: <b>Jan. 1</b>, 11:59pm.
+* Required files: results/index.md, and code/
+* VL Feat Matlab reference: <a href="http://www.vlfeat.org/matlab/matlab.html">http://www.vlfeat.org/matlab/matlab.html</a>
+
+## Prerequisite
+* install tqdm:<br> <code>conda install -c conda-forge tqdm</code>
+    
+## Overview
+
+<img src="README_files/hog_vis.png" alt="HoG" width="400" height="196" style="float:right;">
+
+The sliding window model is conceptually simple: independently classify all image patches as being object or non-object. Sliding window classification is the dominant paradigm in object detection and for one object category in particular -- faces -- it is one of the most noticeable successes of computer vision. For example, modern cameras and photo organization tools have prominent face detection capabilities. These success of face detection (and object detection in general) can be traced back to influential works such as <a href="http://www.informedia.cs.cmu.edu/documents/rowley-ieee.pdf">Rowley et al. 1998</a> and <a href="https://www.cs.cmu.edu/~efros/courses/LBMV07/Papers/viola-cvpr-01.pdf">Viola-Jones 2001</a>. You can look at these papers for suggestions on how to implement your detector. However, for this project you will be implementing the simpler (but still very effective!) sliding window detector of <a href="http://lear.inrialpes.fr/people/triggs/pubs/Dalal-cvpr05.pdf">Dalal and Triggs 2005</a>. Dalal-Triggs focuses on representation more than learning and introduces the SIFT-like Histogram of Gradients (HoG) representation (pictured to the right). Because you have already implemented the SIFT descriptor, you will not be asked to implement HoG. You will be responsible for the rest of the detection pipeline, though -- handling heterogeneous training and testing data, training a linear classifier (a HoG template), and using your classifier to classify millions of sliding windows at multiple scales. Fortunately, linear classifiers are compact, fast to train, and fast to execute. A linear SVM can also be trained on large amounts of data, including mined hard negatives. 
+
+## Details and Starter Code
+
+The following is an outline of the stencil code:
+  <ul>
+	<li><code><font color="green">proj4.py</font></code>. The top level script for training and testing your object detector. If you run the code unmodified, it will predict random faces in the test images. It calls the following functions, many of which are simply placeholders in the starter code:</li>	
+    <li><code><font color="green">get_positive_features.py</font> </code> (<font color="darkturqoise">you code this</font>). Load cropped positive trained examples (faces) and convert them to HoG features with a call to <code>cyvlfeat.hog</code>.</li>
+    <li><code><font color="green">get_random_negative_features.py</font></code> (<font color="darkturqoise">you code this</font>). Sample random negative examples from scenes which contain no faces and convert them to HoG features.</li>
+    <li><code><font color="green">svm_classify.py</font></code> (<font color="darkturqoise">you code this</font>). Train a linear classifier from the positive and negative examples with a call to <code>svm.LinearSVC()</code>.</li>
+    <li><code><font color="green">run_detector.py</font></code> (<font color="darkturqoise">you code this</font>). Run the classifier on the test set. For each image, run the classifier at multiple scales and then call <code>non_max_supr_bbox.py</code> to remove duplicate detections.</li>
+    <li><code><font color="green">evaluate_detections.py</font></code>. Compute ROC curve, precision-recall curve, and average precision. You're not allowed to change this function.</li>
+	 <li><code><font color="green">visualize_detections_by_image.py</font></code>. Visualize detections in each image.</li>
+</ul>
+
+Creating the sliding window, multiscale detector is the most complex part of this project. It is recommended that you start with a <i>single scale</i> detector which does not detect faces at multiple scales in each test image. Such a detector will not work nearly as well (perhaps 0.3 average precision) compared to the full multi-scale detector. With a well trained multi-scale detector with small step size you can expect to match the papers linked above in performance with average precision above 0.9.
+
+## Data
+<p>
+The choice of training data is critical for this task. While an object detection system would typically be trained and tested on a single database (as in the Pascal VOC challenge), face detection papers have traditionally trained on heterogeneous, even proprietary, datasets. As with most of the literature, we will use three databases: (1) positive training crops, (2) non-face scenes to mine for negative training data, and (3) test scenes with ground truth face locations.
+</p>
+<p>You are provided with a positive training database of 6,713 cropped 36x36 faces from the <a href="http://www.vision.caltech.edu/Image_Datasets/Caltech_10K_WebFaces/">Caltech Web Faces project</a>. We arrived at this subset by filtering away faces which were not high enough resolution, upright, or front facing. There are many additional databases available For example, see Figure 3 in <a href="http://vis-www.cs.umass.edu/lfw/lfw.pdf">Huang et al.</a> and the <a href="http://vis-www.cs.umass.edu/lfw/">LFW database</a> described in the paper. You are free to experiment with additional or alternative training data for extra credit.
+</p>
+<p>
+Non-face scenes, the second source of your training data, are easy to collect. We provide a small database of such scenes from <a href="http://cs.nju.edu.cn/wujx/RareEvent/rare_event.htm">Wu et al.</a> and the <a href="http://groups.csail.mit.edu/vision/SUN/">SUN scene database</a>. You can add more non-face training scenes, although you are unlikely to need more negative training data unless you are doing hard negative mining for extra credit.
+</p>
+<p>
+The most common benchmark for face detection is the CMU+MIT test set. This test set contains 130 images with 511 faces. The test set is challenging because the images are highly compressed and quantized. Some of the faces are illustrated faces, not human faces. For this project, we have converted the test set's ground truth landmark points in to Pascal VOC style bounding boxes. We have inflated these bounding boxes to cover most of the head, as the provided training data does. For this reason, you are arguably training a "head detector" not a "face detector" for this project.
+</p>
+<p>
+Copies of these data sets are provided with your starter code and are available in <tt>/course/cs143/asgn/proj4/data</tt>. You probably want to make a local copy of these to speed up training and testing, but please do <i>not</i> include them in your handin.
+</p>
+
+## Writeup
+For this project, and all other projects, you must do a project report in results folder using [Markdown](https://help.github.com/articles/markdown-basics). We provide you with a placeholder [index.md](./results/index.md) document which you can edit. In the report you will describe your algorithm and any decisions you made to write your algorithm a particular way. Then, you will describe how to run your code and if your code depended on other packages. You also need to show and discuss the results of your algorithm. Discuss any extra credit you did, and clearly show what contribution it had on the results (e.g. performance with and without each extra credit component).
+
+You should show how your detector performs on additional images in the <code>data/extra_test_scenes</code> directory.
+
+You should also include the precision-recall curve of your final classifier and any interesting variants of your algorithm.
+
+##Extra Credit 
+<p>
+For all extra credit, be sure to analyze on your index.md  file cases whether your extra credit has improved classification accuracy. Each item is "up to" some amount of points because trivial implementations may not be worthy of full extra credit.<br /><br />
+Some ideas:</p>
+<ul>
+  <li>up to 5 pts: Implement hard negative mining, as discussed in Dalal and Triggs, and demonstrate the effect on performance.
+  <li>up to 5 pts: Implement a HoG descriptor yourself.</li>
+  <li>up to 5 pts: Implement a cascade architecture as in Viola-Jones. Show the effect that this has on accuracy and run speed. Describe your cascade building process in detail in your handout. Unfortunately, with the current starter code this is unlikely to improve run speed because the run time is dominated by image and feature manipulations, not the already fast linear classifier.</li>
+  <li>up to 5 pts: Detect additional object categories. You'll need to get your own training and testing data. One suggestion is to train and run your detector on the Pascal VOC data sets, possibly with the help of their support code. The bounding boxes returned by the stencil code are already in VOC format.</li>
+  <li>up to 3 pts: Interesting features and combinations of features. Be creative!</li>
+  <li>up to 3 pts: Find and utilize alternative positive training data. You can either augment or replace the provided training data.</li>
+  <li>up to 3 pts: Use additional classification schemes (e.g. full decision trees, neural nets, or nearest neighbor methods).</li>
+  <li>up to 5 pts: Add contextual reasoning to your classifier. For example, one might learn likely locations of faces given scene statistics, in the spirit of <a href="http://web.mit.edu/torralba/www/carsAndFacesInContext.html">Contextual priming for object detection, Torralba</a>. You could try and use typical arrangements of groups of faces as in <a href="http://amp.ece.cornell.edu/people/Andy/Andy_files/cvpr09.pdf">Understanding Images of Groups of People</a> and <a href="http://amp.ece.cornell.edu/people/Andy/Andy_files/Gallagher_icme09_rows2.pdf">Finding Rows of People in Group Images</a> by Gallagher and Chen.</li>
+  <li>up to 5 pts: Use deformable models instead of fixed templates as in the work of <a href="http://www.cs.berkeley.edu/~rbg/latent/index.html">Felzenszwalb et al.</a></li>
+  <li>2 pts: If you make your code publicly available.</li>
+<li>2 pts: If you comment on pull request from students who fork the homework.</li>
+</ul>
+
+<p>
+Finally, there will be extra credit and recognition for the students who achieve the highest average precision. You aren't allowed to modify <code>evaluate_all_detections.py</code> which measures your accuracy.
+</p>
+
+## Rubric
+<ul> 
+   <li> +20 pts: Use the training images to create positive and and negative training HoG features.
+   <li> +15 pts: Train linear classifier.
+   <li> +45 pts: Create a multi-scale, sliding window object detector.
+   <li> +20 pts: Writeup with design decisions and evaluation.</li>
+   <li> +10 pts: Extra credit (up to ten points) </li>
+   <li> -5*n pts: Lose 5 points for every time (after the first) you do not follow the instructions for the hand in format </li> 
+</ul> 
+
+## Final Advice
 <p> 
-</p><ul> 
-  <li>Due date: Nov. 30th, 11:59pm</li> 
-  <li>Need to install cyvlfeat library on your anaconda environment : <code>proj3.py conda install -c menpo cyvlfeat</code>
-  <li>Required files: results/index.md, and code/</li>
-
+<ul> 
+  <li>The starter code has more specific advice about the necessary structure of variables through the code. However, the design of the functions is left up to you. You may want to create some additional functions to help abstract away the complexity of sampling training data and running the detector.
+  <li>You probably don't want to run non-max suppression while mining hard-negatives (extra credit).</li>
+  <li>While the idea of mining for hard negatives is ubiquitous in the object detection literature, it may only modestly increase your performance when compared to a similar number of random negatives.</li>
+  <li>The parameters of the learning algorithms are important. The regularization parameter <code>lambda</code> is important for training your linear SVM. It controls the amount of bias in the model, and thus the degree of underfitting or overfitting to the training data. Experiment to find its best value.</li>
+  <li>Your classifiers, especially if they are trained with large amounts of negative data, may "underdetect" because of an overly conservative threshold. You can lower the thresholds on your classifiers to improve your average precision. The precision-recall metric does not penalize a detector for producing false positives, as long as those false positives have lower confidence than true positives. For example, an otherwise accurate detector might only achieve 50% recall on the test set with 1000 detections. If you lower the threshold for a positive detection to achieve 70% recall with 5000 detections your average precision will increase, even though you are returning mostly false positives.</li>
+  <li>When coding <code>run_detector.py</code>, you will need to decide on some important parameters. (1) The step size. By default, this should simply be the pixel width of your HoG cells. That is, you should step one HoG cell at a time while running your detector over a HoG image. However, you will get better performance if you use a fine step size. You can do this by computing HoG features on shifted versions of your image. This is not required, though -- you can get very good performance with sampling steps of 4 or 6 pixels. (2) The step size across scales, e.g. how much you downsample the image. A value of 0.7 (the image is downsampled to 70% of it's previous size recursively) works well enough for debugging, but finer search with a value such as 0.9 will improve performance. However, making the search finer scale will slow down your detector considerably.</li>
+  <li>Likewise your accuracy is likely to increase as you use more of the training data, but this will slow down your training. You can debug your system with smaller amounts of training data (e.g. all positive examples and 10000 negative examples).</li>
+  <li>You can train and test a classifier with average precision of 0.85 in about 60 seconds. It is alright if your training and testing is slower, though.</li>
+  <li>The Viola-Jones algorithm achieves an average precision of 0.895* on the CMU+MIT test set based on the numbers in Table 3 of <a href="https://www.cs.cmu.edu/~efros/courses/LBMV07/Papers/viola-cvpr-01.pdf">the paper</a> (This number may be slightly off because Table 3 doesn't fully specify the precision-recall curve, because the overlap criteria for VJ might not match our overlap criteria, and because the test sets might be slightly different -- VJ says the test set contains 507 faces, whereas we count 511 faces). You can beat this number, although you may need to run the detector at very small step sizes and scales. We have achieved Average Precions around .93.</li>
 </ul>
-<p></p> 
- 
-<h2>Overview</h2> 
-<p> 
-The goal of this project is to introduce you to image recognition. Specifically, we will examine the task of scene recognition starting with very simple methods -- tiny images and nearest neighbor classification -- and then move on to techniques that resemble the state-of-the-art -- bags of quantized local features and linear classifiers learned by support vector machines.
-</p><p>
-Bag of words models are a popular technique for image classification inspired by models used in natural language processing. The model ignores or downplays word arrangement (spatial information in the image) and classifies based on a histogram of the frequency of visual words. The visual word "vocabulary" is established by clustering a large corpus of local features. See Szeliski chapter 14.4.1 for more details on category recognition with quantized features. In addition, 14.3.2 discusses vocabulary creation and 14.1 covers classification techniques. 
-</p>
-<p>
-For this project you will be implementing a basic bag of words model with many opportunities for extra credit. You will classify scenes into one of 15 categories by training and testing on the 15 scene database (introduced in <a href="http://www.di.ens.fr/willow/pdfs/cvpr06b.pdf">Lazebnik et al. 2006</a>, although built on top of previously published datasets). <a href="http://www.di.ens.fr/willow/pdfs/cvpr06b.pdf">Lazebnik et al. 2006</a> is a great paper to read, although we will be implementing the <i>baseline method</i> the paper discusses (equivalent to the zero level pyramid) and not the more sophisticated spatial pyramid (which is extra credit). For an excellent survey of modern feature encoding methods for bag of words models see <a href="http://www.robots.ox.ac.uk/~vgg/research/encoding_eval/">Chatfield et al, 2011</a>.
+</p> 
 
-</p><center><img src="./README_files/categories.png">
-<p style="color: #666;">Example scenes from of each category in the 15 scene dataset. Figure from <a href="http://www.di.ens.fr/willow/pdfs/cvpr06b.pdf">Lazebnik et al. 2006</a>.</p></center><p></p>
-
-<h2>Details and Starter Code</h2>
-<p>
-The top level script for this project is <code>proj3.py</code>. If you run it unchanged, it will randomly guess the category of every test image and achieve about 7% accuracy by doing so (1 out of 15 guesses are correct). 
-</p>
-<p>
-You are required to implement 2 different image representations -- tiny images and bags of SIFT features -- and 2 different classification techniques -- nearest neighbor and linear SVM. In the writeup, you are specifically asked to report performance for the following combinations, and it is also highly recommended that you implement them in this order:
-</p><ul>
- <li>Tiny images representation and nearest neighbor classifier (accuracy of about 18-25%).</li>
- <li>Bag of SIFT representation and nearest neighbor classifier (accuracy of about 50-60%).</li>
- <li>Bag of SIFT representation and linear SVM classifier (accuracy of about 60-70%).</li>
-</ul>
-
-<p>
-You will start by implementing the tiny image representation and the nearest neighbor classifier. They are easy to understand, easy to implement, and run very quickly for our experimental setup (less than 10 seconds). 
-</p>
-<p>
-The "tiny image" feature, inspired by the work of the same name by <a href="http://groups.csail.mit.edu/vision/TinyImages/">Torralba, Fergus, and Freeman</a>, is one of the simplest possible image representations. One simply resizes each image to a small, fixed resolution (we recommend 16x16). It works slightly better if the tiny image is made to have zero mean and unit length. This is not a particularly good representation, because it discards all of the high frequency image content and is not especially shift invariant. <a href="http://groups.csail.mit.edu/vision/TinyImages/">Torralba, Fergus, and Freeman</a> propose several alignment methods to alleviate the latter drawback, but we will not worry about alignment for this project. We are using tiny images simply as a  baseline. See <code>get_tiny_images.py</code> for more details.
-</p>
-<p>
-The nearest neighbor classifier is equally simple to understand. When tasked with classifying a test feature into a particular category, one simply finds the "nearest" training example (L2 distance is a sufficient metric) and assigns the test case the label of that nearest training example. The nearest neighbor classifier has many desirable features -- it requires no training, it can learn arbitrarily complex decision boundaries, and it trivially supports multiclass problems. It is quite vulnerable to training noise, though, which can be alleviated by voting based on the K nearest neighbors (but you are not required to do so). Nearest neighbor classifiers also suffer as the feature dimensionality increases, because the classifier has no mechanism to learn which dimensions are irrelevant for the decision. See <code>nearest_neighbor_classify.py</code> for more details.
-</p>
-<p>
-Together, the tiny image representation and nearest neighbor classifier will get about 15% to 25% accuracy on the 15 scene database. For comparison, chance performance is ~7%.
-</p>
-<p>
-After you have implemented a baseline scene recognition pipeline it is time to move on to a more sophisticated image representation -- bags of quantized SIFT features. Before we can represent our training and testing images as bag of feature histograms, we first need to establish a <i>vocabulary</i> of visual words. We will form this vocabulary by sampling many local features from our training set (10's or 100's of thousands) and then clustering them with kmeans. The number of kmeans clusters is the size of our vocabulary and the size of our features. For example, you might start by clustering many SIFT descriptors into k=50 clusters. This partitions the continuous, 128 dimensional SIFT feature space into 50 regions. For any new SIFT feature we observe, we can figure out which region it belongs to as long as we save the centroids of our original clusters. Those centroids are our visual word vocabulary. Because it can be slow to sample and cluster many local features, the starter code saves the cluster centroids and avoids recomputing them on future runs. See <code>build_vocabulary.py</code> for more details.
-</p>
-<p>
-Now we are ready to represent our training and testing images as histograms of visual words. For each image we will densely sample many SIFT descriptors. Instead of storing hundreds of SIFT descriptors, we simply count how many SIFT descriptors fall into each cluster in our visual word vocabulary. This is done by finding the nearest neighbor kmeans centroid for every SIFT feature. Thus, if we have a vocabulary of 50 visual words, and we detect 220 SIFT features in an image, our bag of SIFT representation will be a histogram of 50 dimensions where each bin counts how many times a SIFT descriptor was assigned to that cluster and sums to 220. The histogram should be normalized so that image size does not dramatically change the bag of feature magnitude. See <code>get_bags_of_sifts.py</code> for more details.
-</p>
-<p>
-You should now measure how well your bag of SIFT representation works when paired with a nearest neighbor classifier. There are <i>many</i> design decisions and free parameters for the bag of SIFT representation (number of clusters, sampling density, sampling scales, SIFT parameters, etc.) so performance might vary from 50% to 60% accuracy.
-</p>
-<p>
-The last task is to train 1-vs-all linear SVMS to operate in the bag of SIFT feature space. Linear classifiers are one of the simplest possible learning models. The feature space is partitioned by a learned hyperplane and test cases are categorized based on which side of that hyperplane they fall on. Despite this model being far less expressive than the nearest neighbor classifier, it will often perform better. For example, maybe in our bag of SIFT representation 40 of the 50 visual words are uninformative. They simply don't help us make a decision about whether an image is a 'forest' or a 'bedroom'. Perhaps they represent smooth patches, gradients, or step edges which occur in all types of scenes. The prediction from a nearest neighbor classifier will still be heavily influenced by these frequent visual words, whereas a linear classifier can learn that those dimensions of the feature vector are less relevant and thus downweight them when making a decision. There are numerous methods to learn linear classifiers but we will find linear decision boundaries with a support vector machine. You do not have to implement the support vector machine. However, linear classifiers are inherently binary and we have a 15-way classification problem. To decide which of 15 categories a test case belongs to, you will train 15 binary, 1-vs-all SVMs. 1-vs-all means that each classifier will be trained to recognize 'forest' vs 'non-forest', 'kitchen' vs 'non-kitchen', etc. All 15 classifiers will be evaluated on each test case and the classifier which is most confidently positive "wins". E.g. if the 'kitchen' classifier returns a score of -0.2 (where 0 is on the decision boundary), and the 'forest' classifier returns a score of -0.3, and all of the other classifiers are even more negative, the test case would be classified as a kitchen even though none of the classifiers put the test case on the positive side of the decision boundary.  When learning an SVM, you have a free parameter 'lambda' which controls how strongly regularized the model is. Your accuracy will be very sensitive to lambda, so be sure to test many values. See <code>svm_classify.py</code> for more details.
-</p>
-<p>
-Now you can evaluate the bag of SIFT representation paired with 1-vs-all linear SVMs. Accuracy should be from 60% to 70% depending on the parameters. You can do better still if you implement extra credit suggestions below. 
-</p>
-<p>
-The starter code, starting from <code>proj3.py</code> contains more concrete guidance on the inputs, outputs, and suggested strategies for the five functions you will implement: <code>get_tiny_images.py</code>, <code>nearest_neighbor_classify.py</code>, <code>build_vocabulary.py</code>, <code>get_bags_of_sifts.py</code>, and <code>svm_classify.py</code>. The starter code also contains <code>visualization.py</code>  (You can modify the code, if you want to show more images). 
-</p>
-<h2>Evaluation and Visualization</h2>
-<p>
-The starter code builds a confusion matrix and visualizes your classification decisions by producing a <a href="https://github.com/NTHU-EE-CV-2017-Fall/homework3/blob/master/results/visualization.md">table of true positives, false positives, and false negatives as a markdown table</a> each time you run <code>proj3.py</code>. 
-</p>
-<h2>Data</h2>
-<p>
-The starter codes trains and tests on 100 images from each category (i.e. 1500 training examples total and 1500 test cases total). In a real research paper, one would be expected to test performance on random splits of the data into training and test sets, but the starter code does not do this to ease debugging.
-</p>
-
-
-<h2>Write up</h2> 
-For this project, and all other projects, you must do a project report in [Markdown](https://help.github.com/articles/markdown-basics). We provide you with a placeholder [index.md](./results/index.md) document which you can edit. In the report you will describe your algorithm and any decisions you made to write your algorithm a particular way. Discuss any extra credit you did and show what contribution it had on the results (e.g. performance with and without each extra credit component).
-<p>
-You are required to report the accuracy you achieved for the three recognition pipelines above (tiny images + nearest neighbor, bag of SIFT + nearest neighbor, and bag of SIFT + 1 vs all linear SVM). The accuracy number reported by the starter code -- the average of the diagonal of the confusion matrix -- will suffice. However, for your best performing recognition setup you should include the <a href="https://github.com/NTHU-EE-CV-2014-Fall/homework3/blob/master/results/index__d">full confusion matrix and the table of classifier results produced by the starter code</a>. Simply copy the html and images into your writeup.
-</p>
-
-<h2>Extra Credit</h2> 
-<p>
-For all extra credit, be sure to include quantitative analysis showing the impact of the particular method you've implemented.  Each item is "up to" some amount of points because trivial implementations may not be worthy of full extra credit. Most of the extra credit focuses on the final bag of words + SVM pipeline of the project, not the baseline tiny image and nearest neighbor methods.
-</p><p>
-Feature representation extra credit:
-</p><ul>
-<li>up to 3 pts: Experiment with features at multiple scales. E.g. sampling features from different levels of a Gaussian pyramid.</li>
-  <li>up to 5 pts: Add additional, complementary features (e.g.  <a href="http://people.csail.mit.edu/torralba/code/spatialenvelope/">gist descriptors</a> and <a href="http://www.robots.ox.ac.uk/~vgg/software/SelfSimilarity/">self-similarity descriptors</a>) and have the classifier consider them all.</li>
-</ul>
-<p>
-Feature quantization and bag of words extra credit:
-</p><ul>
-<li>up to 3 pts: Add spatial information to your features by creating a (possibly overlapping) grid of visual word histograms over the image. This is the "Single-level" regime described by <a href="http://www.cs.unc.edu/~lazebnik/publications/cvpr06b.pdf">Lazebnik et al 2006</a>.</li>
-<li>up to 3 pts: Use "soft assignment" to assign visual words to histogram bins. Each visual word will cast a distance-weighted vote to multiple bins. This is called "kernel codebook encoding" by <a href="http://www.robots.ox.ac.uk/~vgg/research/encoding_eval/">Chatfield et al.</a>.</li>
-  <li>up to 5 pts: Use one of the more sophisticated feature encoding schemes analyzed in the comparative study of <a href="http://www.robots.ox.ac.uk/~vgg/research/encoding_eval/">Chatfield et al.</a> (Fisher, Super Vector, or LLC). 
-</ul>
-<p>
-Classifier extra credit:
-</p><ul>
-<li>up to 3 pts: Train the SVM with more sophisticated kernels such as Gaussian/RBF, L1, or chi-sqr. You will need to use a different SVM package.
-<li>up to 5 pts: Try and improve the nearest neighbor classifier to be competitive or better than the linear SVM using the method of <a href="http://grail.cs.washington.edu/pub/pages/Boiman2008IDO.html">Boiman, Schechtman, and Irani, CVPR 2008</a>.
-</li></ul>
-<p>
-Spatial Pyramid representation and classifier:
-</p><ul>
-<li>up to 5 pts: Add spatial information to your features by implementing the spatial pyramid and pyramid match kernel described in <a href="http://www.cs.unc.edu/~lazebnik/publications/cvpr06b.pdf">Lazebnik et al 2006</a>.</li>
-</ul>
-<p>
-Experimental design extra credit:
-</p><ul>
-<li>up to 3 pts: Use cross-validation to measure performance rather than the fixed test / train split provided by the starter code. Randomly pick 100 training and 100 testing images for each iteration and report average performance and standard deviations.</li>
-  <li>up to 3 pts: Add a validation set to your training process to tune learning parameters. This validation set could either be a subset of the training set or some of the otherwise unused test set.</li>
-  <li>up to 3 pts: Experiment with many different vocabulary sizes and report performance. E.g. 10, 20, 50, 100, 200, 400, 1000, 10000.</li>
-  <li>up to 5 pts: Report performance on the 397-category <a href="http://groups.csail.mit.edu/vision/SUN/">SUN database</a>. This involves more than 100x as many training and testing examples as the base project, so it is not trivial to do.</li>
-</ul>
-<p>
-Github related extra credit:
-
-* +2 pts: If you make your code publicly available.
-* +2 pts: If you comment on pull request from students who fork the homework. Make sure you send me a screenshot of the comments to me.
-
-Finally, there will be extra credit and recognition for the student who achieves the highest recognition rate. 
- 
-<h2> Handing in </h2> 
-
+## Get start & hand in
 * Publicly fork version (+2 extra points)
 	- [Fork the homework](https://education.github.com/guide/forks) to obtain a copy of the homework in your github account
 	- [Clone the homework](http://gitref.org/creating/#clone) to your local space and work on the code locally
@@ -145,27 +120,6 @@ Finally, there will be extra credit and recognition for the student who achieves
   - [Clone the homework](http://gitref.org/creating/#clone) to your local space and work on the code locally
   - Commit and push your local code to your github repo
   - I will clone your repo after the due date
- 
-<h2> Rubric </h2> 
-<ul> 
-<li> +10 pts: Build tiny image features for scene recognition. (<code>get_tiny_images.py</code>)</li>
-<li> +10 pts: Nearest neighbor classifier. (<code>nn_classify.py</code>)</li>
-   <li> +20 pts: Build a vocabulary from a random set of training features. (<code>build_vocabulary.py</code>)</li>
-   <li> +20 pts: Build histograms of visual words for training and testing images. (<code>get_bags_of_sifts.py</code>)</li>
-   <li> +20 pts: Train 1-vs-all SVMs on your bag of words model. (<code>svm_classify.py</code></li>
-   <li> +20 pts: Writeup with design decisions and evaluation.</li>
-   <li> +20 pts: Extra credit (up to <del>ten</del>twenty points) </li>
-   <li> -5*n pts: Lose 5 points for every time (after the first) you do not follow the instructions for the hand in format </li> 
-</ul> 
- 
-<h2> Final Advice </h2> 
-<p> 
-Extracting features, clustering to build a universal dictionary, and building histograms from features can be slow. A good implementation can run the entire pipeline in less than 10 minutes, but this may be at the expense of accuracy (e.g. too  small a vocabulary of visual words or too sparse a sampling rate). Save intermediate results if you are trying to fine tune one part of the pipeline.
 
- 
-</p><h2> Credits </h2> 
-<p>Assignment modified by Min Sun based on project description and code by James Hays and Sam Birch. Figures in this handout from <a href="http://www.robots.ox.ac.uk/~vgg/research/encoding_eval/">Chatfield et al.</a> and <a href="http://www.cs.illinois.edu/homes/slazebni/">Lana Lazebnik</a>.
-
-</p></div> 
-
-
+## Credits
+Assignment modified by Min Sun based on codes from James Hays. Figures in this handout are from <a href="http://lear.inrialpes.fr/people/triggs/pubs/Dalal-cvpr05.pdf">Dalal and Triggs</a>.
